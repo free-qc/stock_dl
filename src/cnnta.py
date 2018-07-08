@@ -18,6 +18,7 @@ from keras.layers import Dense, LSTM
 from keras.layers import Conv2D, MaxPooling2D, Dropout, Flatten, Dense
 from sklearn.metrics import precision_score, recall_score, f1_score, confusion_matrix
 from matplotlib.finance import candlestick_ochl
+from matplotlib.dates import date2num
 
 
 def generate_imgs(fluc_range=0.01):
@@ -83,27 +84,40 @@ def generate_kline_imgs(fluc_range=0.01):
         stock_dir = output_dir + '/' + stock.split('.')[0]
         if not os.path.exists(stock_dir):
             os.mkdir(stock_dir)
-        all_days = len(input_df)
+        num_days = len(input_df)
         labels_arr = labelling(input_df, fluc_range=fluc_range)
-        for day in range(all_days - 20):
-            begin_idx = day
-            end_idx = day + 20
-        # 按年份分开
+        # 按年份建立文件夹，以便存储img
         for year in range(2008, 2018):
             stock_year_dir = stock_dir + '/' + str(year)
             if not os.path.exists(stock_year_dir):
                 os.mkdir(stock_year_dir)
+        # 生产img并存储
+        kline_imgs(input_df)
 
 
 def kline_imgs(input_df):
-    price = arr[:, 1:5]
-    price_max = price.max()
-    price_min = price.min()
-    fig, ax = plt.subplots()
+    price_df = input_df.loc[:, ['date', 'open', 'close', 'high', 'low']]
+    date_se = input_df.loc[:, 'date'][19:]
+    num_imgs = price_df.shape[0] - 20
+    price_max = price_df.max()
+    price_min = price_df.min()
+    plt.figure(facecolor='black')
     plt.grid(False)
-    ax.autoscale_view()
-    x.set_ylim(price_min, price_max)
-    plt.show()
+    # 用来储存imgs
+    imgs_arr = np.zeros(shape=(num_imgs, 224, 224))
+    for num in num_imgs:
+        begin_idx = num
+        end_idx = num + 19
+        date = str(date_se[end_idx])[:10]
+        year = date[:4]
+        img_df = price_df.iloc[begin_idx:end_idx + 1]
+        # 图像不标注日期，为了使k线连续，改为连续的数字即可（int或float都可以？）
+        img_df['date'] = range(20)
+        fig, ax = plt.subplots()
+        candlestick_ochl(ax, img_df)
+        ax.autoscale_view()
+        ax.set_ylim(price_min, price_max)
+        plt.show()
 
 
 def CNN_model():
