@@ -22,7 +22,7 @@ from PIL import Image
 from pandas import datetime
 
 
-def generate_imgs(fluc_range=0.01):
+def generate_imgs(fluc_range=0.01, labelling_method='fluc'):
     print('=================generating imgs===============')
     stocks_dir = '../data/stock'
     stocks_names = [f for f in os.listdir(stocks_dir) if not f.startswith('.')]
@@ -42,7 +42,7 @@ def generate_imgs(fluc_range=0.01):
         stock_dir = output_dir + '/' + stock.split('.')[0]
         if not os.path.exists(stock_dir):
             os.mkdir(stock_dir)
-        indicators_df = ta_process(input_df, indicators, fluc_range)
+        indicators_df = ta_process(input_df, indicators, fluc_range, labelling_method)
         # 按年份分开
         year_se = indicators_df['date'].map(lambda x: x.year)
         for year in range(2008, 2018):
@@ -161,9 +161,9 @@ def CNN_model():
     return model
 
 
-def ta_process(input_df, indicators, fluc_range):
+def ta_process(input_df, indicators, fluc_range, labelling_method='fluc'):
     intervals = list(range(6, 21))
-    input_df['label'] = labelling(input_df, fluc_range, method='time_window')
+    input_df['label'] = labelling(input_df, fluc_range, method=labelling_method)
     input_df['SMA50'] = SMA(input_df, timeperiod=50)
     for indr in indicators:
         for intr in intervals:
@@ -256,11 +256,10 @@ def generate_data(stock_dir, train_interval, test_year):
 
 def metrics_eval(y_true, y_pred):
     score_funcs = (recall_score, precision_score, f1_score)
-    label_enc_factor = np.array([0, 1, 2], dtype='int32')
-    if not len(y_true.shape) == 1:
-        y_true = (y_true * label_enc_factor).sum(axis=1)
-    if not len(y_pred.shape) == 1:
-        y_pred = (y_pred * label_enc_factor).sum(axis=1)
+    y_true_shape = y_true.shape
+    y_pred_shape = y_pred.shape
+    y_true = output_reshape(y_true, y_true_shape)
+    y_pred = output_reshape(y_pred, y_pred_shape)
     confusion_mat = confusion_matrix(y_true, y_pred)
     # SELL:0  BUY:1  HOLD:2
     score_dic = {'SELL': {}, 'BUY': {}, 'HOLD': {}}
@@ -271,6 +270,16 @@ def metrics_eval(y_true, y_pred):
     return {'confusion_matrix': confusion_mat,
             'score': score_dic
             }
+
+
+def output_reshape(arr, arr_shape):
+    label_enc_factor = np.array([0, 1, 2], dtype='int8')
+    if not len(arr_shape) == 1:
+        if arr_shape[1] == 2:
+            arr = np.hstack((arr, np.zeros(arr_shape[0])))
+        assert arr_shape > 1, '只有一类？'
+        arr = (arr * label_enc_factor).sum(axis=1)
+    return arr
 
 
 def finan_eval(y_pred, train_fin_data, test_fin_data):
