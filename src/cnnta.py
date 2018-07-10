@@ -93,7 +93,7 @@ def generate_kline_imgs(fluc_range=0.01, image_save=False):
         # 生成img并存储
         imgs_arr = kline_imgs(input_df, stock_dir, image_save)
         # imgs_arr不包含前19天,labels_arr也需要裁剪
-        labels_arr = labels_arr[19:]
+        labels_arr = labels_arr[19:-1]
         fin_data = input_df.loc[:, ['date',
                                     'open',
                                     'close']]
@@ -184,6 +184,7 @@ def ta_process(input_df, indicators, fluc_range):
 
 
 def labelling(input_df, fluc_range, method='fluc'):
+    # 返回的label_arr长度均为输入数据长度
     if method == 'time_window':
         close_price_arr = input_df['close'].values
         arr_len = close_price_arr.shape[0]
@@ -207,7 +208,8 @@ def labelling(input_df, fluc_range, method='fluc'):
     if method == 'fluc':
         close_price_arr = input_df['close'].values
         close_arr_len = close_price_arr.shape[0]
-        label_arr = np.zeros(shape=close_arr_len - 1)
+        label_arr = np.zeros(shape=close_arr_len)
+        label_arr[-1] = np.nan
         for idx in range(close_arr_len - 1):
             this_day_close = close_price_arr[idx]
             next_day_close = close_price_arr[idx + 1]
@@ -221,7 +223,9 @@ def labelling(input_df, fluc_range, method='fluc'):
                 label_arr[idx] = 2
         return label_arr
     if method == 'regression':
-        return input_df['close'].values[:-1]
+        label_arr = input_df['close'].values
+        label_arr = np.append(label_arr, np.nan)
+        return label_arr
 
 
 def HMA(inputs, price='close', timeperiod=10):
@@ -449,7 +453,6 @@ def res_process(res_dic, eval_list, output_dir):
     # with open(output_dir + '/' + 'res.json', 'w', encoding='utf-8') as f:
     #     json.dump(res_dic, f)
     return confusion_matrix_df, score_df, finan_se
-
 
 # if __name__ == '__main__':
 #     generate_kline_imgs()
