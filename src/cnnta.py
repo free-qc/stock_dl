@@ -18,7 +18,8 @@ from keras.layers import Dense, LSTM
 from keras.layers import Conv2D, MaxPooling2D, Dropout, Flatten, Dense
 from sklearn.metrics import precision_score, recall_score, f1_score, confusion_matrix
 from matplotlib.finance import candlestick_ochl
-from matplotlib.dates import date2num
+from PIL import Image
+from pandas import datetime
 
 
 def generate_imgs(fluc_range=0.01):
@@ -70,8 +71,7 @@ def generate_imgs(fluc_range=0.01):
     print('=====================done======================')
 
 
-# TODO kline_imgs
-def generate_kline_imgs(fluc_range=0.01):
+def generate_kline_imgs(fluc_range=0.01, image_save=False):
     stocks_dir = '../data/stock'
     stocks_names = [f for f in os.listdir(stocks_dir) if not f.startswith('.')]
     output_dir = '../input/kline'
@@ -80,44 +80,70 @@ def generate_kline_imgs(fluc_range=0.01):
     for stock in stocks_names:
         # date open close high low volume
         input_df = pd.read_csv(stocks_dir + '/' + stock, parse_dates=[0], header=0)
-
+        input_df = input_df[input_df['date'] < datetime(2018, 1, 1)]
         stock_dir = output_dir + '/' + stock.split('.')[0]
         if not os.path.exists(stock_dir):
-            os.mkdir(stock_dir)
-        num_days = len(input_df)
-        labels_arr = labelling(input_df, fluc_range=fluc_range)
+            os.makedirs(stock_dir)
+        labels_arr = labelling(input_df, fluc_range=fluc_range, method='regression')
         # 按年份建立文件夹，以便存储img
         for year in range(2008, 2018):
             stock_year_dir = stock_dir + '/' + str(year)
             if not os.path.exists(stock_year_dir):
                 os.mkdir(stock_year_dir)
-        # 生产img并存储
-        kline_imgs(input_df)
+        # 生成img并存储
+        imgs_arr = kline_imgs(input_df, stock_dir, image_save)
+        # imgs_arr不包含前19天,labels_arr也需要裁剪
+        labels_arr = labels_arr[19:]
+        fin_data = input_df.loc[:, ['date',
+                                    'open',
+                                    'close']]
+        fin_data = fin_data.iloc[19:-1].values
+        year_se = input_df['date'].apply(lambda x: x.year)
+        year_se = year_se.iloc[19:-1]
+        assert imgs_arr.shape[0] == labels_arr.shape[0] == fin_data.shape[0], "labels和imgs或fin_data长度不同"
+        for year in range(2008, 2018):
+            year_fin_data = fin_data[year_se == year]
+            year_imgs_arr = imgs_arr[year_se == year]
+            year_labels_arr = labels_arr[year_se == year]
+            np.savez('{0}/{1}.npz'.format(stock_dir, year), imgs=year_imgs_arr, fin_data=year_fin_data,
+                     labels=year_labels_arr)
 
 
-def kline_imgs(input_df):
+def kline_imgs(input_df, stock_dir, image_save=False):
     price_df = input_df.loc[:, ['date', 'open', 'close', 'high', 'low']]
     date_se = input_df.loc[:, 'date'][19:]
-    num_imgs = price_df.shape[0] - 20
-    price_max = price_df.max()
-    price_min = price_df.min()
-    plt.figure(facecolor='black')
+    num_imgs = price_df.shape[0] - 20 + 1
+    # TODO 相对位置
+    # price_max = price_df.max()
+    # price_min = price_df.min()
     plt.grid(False)
     # 用来储存imgs
-    imgs_arr = np.zeros(shape=(num_imgs, 224, 224))
-    for num in num_imgs:
+    imgs_arr = np.zeros(shape=(num_imgs, 224, 224, 3))
+    for num in range(num_imgs):
         begin_idx = num
         end_idx = num + 19
         date = str(date_se[end_idx])[:10]
         year = date[:4]
+        img_path = stock_dir + '/' + year + '/' + date + '.png'
         img_df = price_df.iloc[begin_idx:end_idx + 1]
         # 图像不标注日期，为了使k线连续，改为连续的数字即可（int或float都可以？）
         img_df['date'] = range(20)
-        fig, ax = plt.subplots()
-        candlestick_ochl(ax, img_df)
-        ax.autoscale_view()
-        ax.set_ylim(price_min, price_max)
-        plt.show()
+        if image_save:
+            # 开始作图
+            fig, ax = plt.subplots()
+            candlestick_ochl(ax, img_df.values, colorup='g', colordown='r')
+            ax.set_xticks([])
+            ax.set_yticks([])
+            fig.set_size_inches(2.24 / 3, 2.24 / 3)
+            plt.gca().xaxis.set_major_locator(plt.NullLocator())
+            plt.gca().yaxis.set_major_locator(plt.NullLocator())
+            plt.subplots_adjust(top=1, bottom=0, right=1, left=0, hspace=0, wspace=0)
+            plt.margins(0.1, 0.1)
+            fig.savefig(img_path, format='png', facecolor='black', dpi=300, pad_inches=0)
+            plt.close('all')
+        imgs_arr[num] = np.array(Image.open(img_path).convert(mode='RGB'))
+    # imgs_arr包含最后一天,最后一天没有label,去掉
+    return imgs_arr[:-1]
 
 
 def CNN_model():
@@ -137,7 +163,7 @@ def CNN_model():
 
 def ta_process(input_df, indicators, fluc_range):
     intervals = list(range(6, 21))
-    input_df['label'] = labelling(input_df, fluc_range)
+    input_df['label'] = labelling(input_df, fluc_range, method='time_window')
     input_df['SMA50'] = SMA(input_df, timeperiod=50)
     for indr in indicators:
         for intr in intervals:
@@ -157,42 +183,45 @@ def ta_process(input_df, indicators, fluc_range):
     return input_df
 
 
-def labelling(input_df, fluc_range):
-    # close_price_arr = input_df['close'].values
-    # arr_len = close_price_arr.shape[0]
-    # # 时间窗口是11，前10天缺失
-    # label_list = [np.nan] * 10
-    # for idx in range(10, arr_len):
-    #     begin_idx = idx - 10
-    #     end_idx = idx
-    #     middle_idx = 5
-    #     window_arr = close_price_arr[begin_idx:end_idx + 1]
-    #     min_idx = window_arr.argmin()
-    #     max_idx = window_arr.argmax()
-    #     # SELL:0  BUY:1  HOLD:2
-    #     if middle_idx == max_idx:
-    #         label_list.append(0)
-    #     elif middle_idx == min_idx:
-    #         label_list.append(1)
-    #     else:
-    #         label_list.append(2)
-    # close_price_arr = input_df['close'].values
-    # arr_len = close_price_arr.shape[0]
-    close_price_arr = input_df['close'].values
-    close_arr_len = close_price_arr.shape[0]
-    label_arr = np.zeros(shape=close_arr_len)
-    for idx in range(close_arr_len - 1):
-        this_day_close = close_price_arr[idx]
-        next_day_close = close_price_arr[idx + 1]
-        close_diff = next_day_close - this_day_close
-        # SELL:0  BUY:1  HOLD:2
-        if close_diff < (-fluc_range):
-            label_arr[idx] = 0
-        elif close_diff > fluc_range:
-            label_arr[idx] = 1
-        else:
-            label_arr[idx] = 2
-    return label_arr
+def labelling(input_df, fluc_range, method='fluc'):
+    if method == 'time_window':
+        close_price_arr = input_df['close'].values
+        arr_len = close_price_arr.shape[0]
+        # 时间窗口是11，前10天缺失
+        label_list = [np.nan] * 10
+        for idx in range(10, arr_len):
+            begin_idx = idx - 10
+            end_idx = idx
+            middle_idx = 5
+            window_arr = close_price_arr[begin_idx:end_idx + 1]
+            min_idx = window_arr.argmin()
+            max_idx = window_arr.argmax()
+            # SELL:0  BUY:1  HOLD:2
+            if middle_idx == max_idx:
+                label_list.append(0)
+            elif middle_idx == min_idx:
+                label_list.append(1)
+            else:
+                label_list.append(2)
+        return np.array(label_list)
+    if method == 'fluc':
+        close_price_arr = input_df['close'].values
+        close_arr_len = close_price_arr.shape[0]
+        label_arr = np.zeros(shape=close_arr_len - 1)
+        for idx in range(close_arr_len - 1):
+            this_day_close = close_price_arr[idx]
+            next_day_close = close_price_arr[idx + 1]
+            close_diff = next_day_close - this_day_close
+            # SELL:0  BUY:1  HOLD:2
+            if close_diff < (-fluc_range):
+                label_arr[idx] = 0
+            elif close_diff > fluc_range:
+                label_arr[idx] = 1
+            else:
+                label_arr[idx] = 2
+        return label_arr
+    if method == 'regression':
+        return input_df['close'].values[:-1]
 
 
 def HMA(inputs, price='close', timeperiod=10):
@@ -421,7 +450,9 @@ def res_process(res_dic, eval_list, output_dir):
     #     json.dump(res_dic, f)
     return confusion_matrix_df, score_df, finan_se
 
+
 # if __name__ == '__main__':
+#     generate_kline_imgs()
 #     from keras.utils import to_categorical
 #     from keras.layers import Conv2D, MaxPooling2D, Dropout, Flatten, Dense
 #     from keras.metrics import categorical_accuracy
