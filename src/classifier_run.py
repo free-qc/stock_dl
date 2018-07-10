@@ -21,7 +21,7 @@ if __name__ == '__main__':
     input_years = [str(year) for year in range(2008, 2018)]
     for fluc_range in [0.01, 0.015, 0.02, 0.025, 0.03]:
         generate_imgs(fluc_range)
-        generate_kline_imgs(fluc_range, image_save=False)
+        # generate_kline_imgs(fluc_range, image_save=False)
         cnn_model = CNN_model()
         for stock in stock_list:
             stock_dir = input_dir + '/' + stock
@@ -41,7 +41,7 @@ if __name__ == '__main__':
                 print('training:{0},train_interval:{1}-->{2},test_year:{3}'.format(stock, train_year_interval[0],
                                                                                    train_year_interval[-1], test_year))
                 train_y = to_categorical(train_y)
-                test_y = to_categorical(test_y)
+                assert train_y.shape[1] == 3, '少个类别'
 
                 history = cnn_model.fit(train_x, train_y,
                                         batch_size=bath_size,
@@ -49,7 +49,6 @@ if __name__ == '__main__':
                                         verbose=2)
                 # SELL:0  BUY:1  HOLD:2
                 pred_y = cnn_model.predict_classes(test_x)
-                pred_y = to_categorical(pred_y)
 
                 res_dic[test_year] = {}
                 res_dic[test_year]['metrics_eval'] = metrics_eval(pred_y, test_y)
