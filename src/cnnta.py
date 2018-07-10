@@ -135,6 +135,8 @@ def kline_imgs(input_df, stock_dir, image_save=False):
             ax.set_xticks([])
             ax.set_yticks([])
             fig.set_size_inches(2.24 / 3, 2.24 / 3)
+            ax.set_facecolor('black')
+            fig.set_facecolor('black')
             plt.gca().xaxis.set_major_locator(plt.NullLocator())
             plt.gca().yaxis.set_major_locator(plt.NullLocator())
             plt.subplots_adjust(top=1, bottom=0, right=1, left=0, hspace=0, wspace=0)
