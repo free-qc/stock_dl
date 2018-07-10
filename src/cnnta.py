@@ -276,7 +276,7 @@ def output_reshape(arr, arr_shape):
     label_enc_factor = np.array([0, 1, 2], dtype='int8')
     if not len(arr_shape) == 1:
         if arr_shape[1] == 2:
-            arr = np.hstack((arr, np.zeros(arr_shape[0])))
+            arr = np.hstack((arr, np.zeros((arr_shape[0], 1), dtype='int8')))
         assert arr_shape > 1, '只有一类？'
         arr = (arr * label_enc_factor).sum(axis=1)
     return arr
