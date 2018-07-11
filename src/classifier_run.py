@@ -20,8 +20,8 @@ if __name__ == '__main__':
     stock_list = [f for f in os.listdir(input_dir) if not f.startswith('.')]
     input_years = [str(year) for year in range(2008, 2018)]
     for fluc_range in [0.01, 0.015, 0.02, 0.025, 0.03]:
-        generate_imgs(fluc_range)
-        # generate_kline_imgs(fluc_range, image_save=False)
+        # generate_imgs(fluc_range)
+        generate_kline_imgs(fluc_range, labelling_method='fluc', image_save=False)
         cnn_model = CNN_model()
         for stock in stock_list:
             stock_dir = input_dir + '/' + stock

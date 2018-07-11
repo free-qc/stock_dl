@@ -71,7 +71,7 @@ def generate_imgs(fluc_range=0.01, labelling_method='fluc'):
     print('=====================done======================')
 
 
-def generate_kline_imgs(fluc_range=0.01, image_save=False):
+def generate_kline_imgs(fluc_range=0.01, labelling_method='fluc', image_save=False):
     stocks_dir = '../data/stock'
     stocks_names = [f for f in os.listdir(stocks_dir) if not f.startswith('.')]
     output_dir = '../input/kline'
@@ -84,7 +84,7 @@ def generate_kline_imgs(fluc_range=0.01, image_save=False):
         stock_dir = output_dir + '/' + stock.split('.')[0]
         if not os.path.exists(stock_dir):
             os.makedirs(stock_dir)
-        labels_arr = labelling(input_df, fluc_range=fluc_range, method='regression')
+        labels_arr = labelling(input_df, fluc_range=fluc_range, method=labelling_method)
         # 按年份建立文件夹，以便存储img
         for year in range(2008, 2018):
             stock_year_dir = stock_dir + '/' + str(year)
@@ -225,7 +225,7 @@ def labelling(input_df, fluc_range, method='fluc'):
                 label_arr[idx] = 2
         return label_arr
     if method == 'regression':
-        label_arr = input_df['close'].values
+        label_arr = input_df['close'].values[1:]
         label_arr = np.append(label_arr, np.nan)
         return label_arr
 
