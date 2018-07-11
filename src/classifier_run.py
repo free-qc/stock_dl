@@ -12,7 +12,7 @@ from keras.utils import to_categorical
 if __name__ == '__main__':
 
     bath_size = 20
-    nb_epoch = 2
+    nb_epoch = 20
     train_interval = 5
 
     input_dir = '../input'
