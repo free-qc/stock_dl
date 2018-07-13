@@ -19,7 +19,6 @@ from keras.layers import Conv2D, MaxPooling2D, Dropout, Flatten, Dense
 from sklearn.metrics import precision_score, recall_score, f1_score, confusion_matrix
 from matplotlib.finance import candlestick_ochl
 from PIL import Image
-from pandas import datetime
 
 np.seterr(invalid='ignore')
 
