@@ -4,7 +4,7 @@ Created on 2018/6/28
 
 @author: Free_QC
 """
-
+import sys
 import pandas as pd
 import numpy as np
 import os
@@ -21,12 +21,34 @@ from matplotlib.finance import candlestick_ochl
 from PIL import Image
 from pandas import datetime
 
+np.seterr(invalid='ignore')
 
-def generate_imgs(fluc_range=0.01, labelling_method='fluc'):
+
+class ProgressBar:
+    def __init__(self, count=0, total=0, width=50):
+        self.count = count
+        self.total = total
+        self.width = width
+
+    def move(self):
+        self.count += 1
+
+    def log(self, s):
+        sys.stdout.write(' ' * (self.width + 9) + '\r')
+        sys.stdout.flush()
+        progress = self.width * self.count // self.total
+        sys.stdout.write('{0},{1:3}/{2:3}: '.format(s, self.count, self.total))
+        sys.stdout.write('#' * progress + '-' * (self.width - progress) + '\r')
+        if progress == self.width:
+            sys.stdout.write('\n')
+        sys.stdout.flush()
+
+
+def generate_imgs(fluc_range=0.01, fluc_period=5, labelling_method='fluc'):
     print('=================generating imgs===============')
     stocks_dir = '../data/stock'
     stocks_names = [f for f in os.listdir(stocks_dir) if not f.startswith('.')]
-    output_dir = '../input'
+    output_dir = '../input/ta'
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
     indicators = [MACD, RSI, WILLR, SMA, EMA, WMA, HMA, TEMA, CCI, CMO, MACD, PPO, ROC, MFI, DX, SAR]
@@ -42,7 +64,7 @@ def generate_imgs(fluc_range=0.01, labelling_method='fluc'):
         stock_dir = output_dir + '/' + stock.split('.')[0]
         if not os.path.exists(stock_dir):
             os.mkdir(stock_dir)
-        indicators_df = ta_process(input_df, indicators, fluc_range, labelling_method)
+        indicators_df = ta_process(input_df, indicators, fluc_range, fluc_period, labelling_method)
         # 按年份分开
         year_se = indicators_df['date'].map(lambda x: x.year)
         for year in range(2008, 2018):
@@ -71,7 +93,8 @@ def generate_imgs(fluc_range=0.01, labelling_method='fluc'):
     print('=====================done======================')
 
 
-def generate_kline_imgs(fluc_range=0.01, labelling_method='fluc', image_save=False):
+def generate_kline_imgs(fluc_range=0.01, fluc_period=5, labelling_method='fluc', image_save=False,
+                        img_shape=(112, 112)):
     stocks_dir = '../data/stock'
     stocks_names = [f for f in os.listdir(stocks_dir) if not f.startswith('.')]
     output_dir = '../input/kline'
@@ -80,36 +103,40 @@ def generate_kline_imgs(fluc_range=0.01, labelling_method='fluc', image_save=Fal
     for stock in stocks_names:
         # date open close high low volume
         input_df = pd.read_csv(stocks_dir + '/' + stock, parse_dates=[0], header=0)
-        input_df = input_df[input_df['date'] < datetime(2018, 1, 1)]
         stock_dir = output_dir + '/' + stock.split('.')[0]
         if not os.path.exists(stock_dir):
             os.makedirs(stock_dir)
-        labels_arr = labelling(input_df, fluc_range=fluc_range, method=labelling_method)
+        labels_arr = labelling(input_df, fluc_range=fluc_range, fluc_period=fluc_period, method=labelling_method)
         # 按年份建立文件夹，以便存储img
-        for year in range(2008, 2018):
+        for year in range(2008, 2019):
             stock_year_dir = stock_dir + '/' + str(year)
             if not os.path.exists(stock_year_dir):
                 os.mkdir(stock_year_dir)
         # 生成img并存储
-        imgs_arr = kline_imgs(input_df, stock_dir, image_save)
+        if image_save:
+            imgs_arr = kline_imgs(input_df, stock_dir, image_save, img_shape)
+            imgs_arr = imgs_arr[:-fluc_period]
         # imgs_arr不包含前19天,labels_arr也需要裁剪
-        labels_arr = labels_arr[19:-1]
+        labels_arr = labels_arr[19:-fluc_period].astype('uint8')
         fin_data = input_df.loc[:, ['date',
                                     'open',
                                     'close']]
-        fin_data = fin_data.iloc[19:-1].values
+        fin_data = fin_data.iloc[19:-fluc_period].values
         year_se = input_df['date'].apply(lambda x: x.year)
-        year_se = year_se.iloc[19:-1]
-        assert imgs_arr.shape[0] == labels_arr.shape[0] == fin_data.shape[0], "labels和imgs或fin_data长度不同"
+        year_se = year_se.iloc[19:-fluc_period]
+        # assert imgs_arr.shape[0] == labels_arr.shape[0] == fin_data.shape[0], "labels和imgs或fin_data长度不同"
         for year in range(2008, 2018):
+            if not image_save:
+                year_imgs_arr = np.load('{0}/{1}.npz'.format(stock_dir, year))['imgs']
+            else:
+                year_imgs_arr = imgs_arr[year_se == year]
             year_fin_data = fin_data[year_se == year]
-            year_imgs_arr = imgs_arr[year_se == year]
             year_labels_arr = labels_arr[year_se == year]
             np.savez('{0}/{1}.npz'.format(stock_dir, year), imgs=year_imgs_arr, fin_data=year_fin_data,
                      labels=year_labels_arr)
 
 
-def kline_imgs(input_df, stock_dir, image_save=False):
+def kline_imgs(input_df, stock_dir, image_save=False, img_shape=(112, 112)):
     price_df = input_df.loc[:, ['date', 'open', 'close', 'high', 'low']]
     date_se = input_df.loc[:, 'date'][19:]
     num_imgs = price_df.shape[0] - 20 + 1
@@ -118,23 +145,25 @@ def kline_imgs(input_df, stock_dir, image_save=False):
     # price_min = price_df.min()
     plt.grid(False)
     # 用来储存imgs
-    imgs_arr = np.zeros(shape=(num_imgs, 224, 224, 3))
+    row_pix, col_pix = img_shape
+    imgs_arr = np.zeros(shape=(num_imgs, row_pix, col_pix, 3), dtype='uint8')
+    bar = ProgressBar(total=num_imgs)
     for num in range(num_imgs):
         begin_idx = num
         end_idx = num + 19
         date = str(date_se[end_idx])[:10]
         year = date[:4]
         img_path = stock_dir + '/' + year + '/' + date + '.png'
-        img_df = price_df.iloc[begin_idx:end_idx + 1]
+        img_df = pd.DataFrame(price_df.iloc[begin_idx:end_idx + 1])
         # 图像不标注日期，为了使k线连续，改为连续的数字即可（int或float都可以？）
-        img_df['date'] = range(20)
+        img_df.loc[:, 'date'] = list(range(20))
         if image_save:
             # 开始作图
             fig, ax = plt.subplots()
-            candlestick_ochl(ax, img_df.values, colorup='g', colordown='r')
+            candlestick_ochl(ax, img_df.values, width=0.005, colorup='g', colordown='r')
             ax.set_xticks([])
             ax.set_yticks([])
-            fig.set_size_inches(2.24 / 3, 2.24 / 3)
+            fig.set_size_inches(row_pix / 300, col_pix / 300)
             ax.set_facecolor('black')
             fig.set_facecolor('black')
             plt.gca().xaxis.set_major_locator(plt.NullLocator())
@@ -144,13 +173,15 @@ def kline_imgs(input_df, stock_dir, image_save=False):
             fig.savefig(img_path, format='png', facecolor='black', dpi=300, pad_inches=0)
             plt.close('all')
         imgs_arr[num] = np.array(Image.open(img_path).convert(mode='RGB'))
-    # imgs_arr包含最后一天,最后一天没有label,去掉
-    return imgs_arr[:-1]
+        bar.move()
+        bar.log('generating kline imgs')
+    # imgs_arr不包含前19天
+    return imgs_arr
 
 
-def CNN_model():
+def CNN_model(input_shape=(15, 15, 1)):
     model = Sequential()
-    model.add(Conv2D(filters=32, kernel_size=(3, 3), padding='same', input_shape=(15, 15, 1), activation='relu'))
+    model.add(Conv2D(filters=32, kernel_size=(3, 3), padding='same', input_shape=input_shape, activation='relu'))
     model.add(Conv2D(filters=64, kernel_size=(3, 3), padding='same', activation='relu'))
     model.add(MaxPooling2D(pool_size=(2, 2)))
     model.add(Dropout(rate=0.25))
@@ -163,9 +194,27 @@ def CNN_model():
     return model
 
 
-def ta_process(input_df, indicators, fluc_range, labelling_method='fluc'):
+def Kline_model(input_shape=(112, 112, 3)):
+    model = Sequential()
+    model.add(Conv2D(filters=32, kernel_size=(3, 3), padding='same', input_shape=input_shape, activation='relu'))
+    model.add(MaxPooling2D(pool_size=(2, 2)))
+    model.add(Conv2D(filters=64, kernel_size=(3, 3), padding='same', activation='relu'))
+    model.add(MaxPooling2D(pool_size=(2, 2)))
+    model.add(Conv2D(filters=128, kernel_size=(3, 3), padding='same', activation='relu'))
+    model.add(MaxPooling2D(pool_size=(2, 2)))
+    model.add(Dropout(rate=0.25))
+    model.add(Flatten())
+    model.add(Dense(units=1024, activation='relu'))
+    model.add(Dropout(rate=0.5))
+    model.add(Dense(units=3, activation='softmax'))
+    model.compile(loss='categorical_crossentropy', optimizer='adam',
+                  metrics=[categorical_accuracy])
+    return model
+
+
+def ta_process(input_df, indicators, fluc_range, fluc_period, labelling_method='fluc'):
     intervals = list(range(6, 21))
-    input_df['label'] = labelling(input_df, fluc_range, method=labelling_method)
+    input_df['label'] = labelling(input_df, fluc_range, fluc_period, method=labelling_method)
     input_df['SMA50'] = SMA(input_df, timeperiod=50)
     for indr in indicators:
         for intr in intervals:
@@ -185,7 +234,7 @@ def ta_process(input_df, indicators, fluc_range, labelling_method='fluc'):
     return input_df
 
 
-def labelling(input_df, fluc_range, method='fluc'):
+def labelling(input_df, fluc_range=0.01, fluc_period=5, method='fluc'):
     # 返回的label_arr长度均为输入数据长度
     if method == 'time_window':
         close_price_arr = input_df['close'].values
@@ -208,21 +257,15 @@ def labelling(input_df, fluc_range, method='fluc'):
                 label_list.append(2)
         return np.array(label_list)
     if method == 'fluc':
+        fluc_period = int(fluc_period)
         close_price_arr = input_df['close'].values
         close_arr_len = close_price_arr.shape[0]
         label_arr = np.zeros(shape=close_arr_len)
-        label_arr[-1] = np.nan
-        for idx in range(close_arr_len - 1):
-            this_day_close = close_price_arr[idx]
-            next_day_close = close_price_arr[idx + 1]
-            close_diff = next_day_close - this_day_close
-            # SELL:0  BUY:1  HOLD:2
-            if close_diff < (-fluc_range):
-                label_arr[idx] = 0
-            elif close_diff > fluc_range:
-                label_arr[idx] = 1
-            else:
-                label_arr[idx] = 2
+        period_log = np.log(close_price_arr / np.roll(close_price_arr, fluc_period))[fluc_period:]
+        period_log = np.append(period_log, np.array([np.nan] * fluc_period))
+        label_arr[period_log < -fluc_range] = 0
+        label_arr[period_log > fluc_range] = 1
+        label_arr[(-fluc_range < period_log) * (period_log < fluc_range)] = 2
         return label_arr
     if method == 'regression':
         label_arr = input_df['close'].values[1:]
@@ -252,7 +295,9 @@ def generate_data(stock_dir, train_interval, test_year):
     test_X = test_arrs['imgs']
     test_Y = test_arrs['labels']
     test_fin_data = test_arrs['fin_data']
-
+    if train_X.dtype == np.dtype('uint8'):
+        train_X = train_X.astype('float32') / 255
+        test_X = test_X.astype('float32') / 255
     return train_X, train_Y, test_X, test_Y, train_fin_data, test_fin_data
 
 
@@ -466,6 +511,23 @@ def res_process(res_dic, eval_list, output_dir):
     return confusion_matrix_df, score_df, finan_se
 
 # if __name__ == '__main__':
+#     fluc_period_params = [3, 5, 10, 15, 20]
+#     # fluc_period_params_test = [20]
+#     fluc_range_params = [0.005, 0.01, 0.015, 0.02, 0.025, 0.03]
+#     params_tup = [(i, j) for i in fluc_range_params for j in fluc_period_params]
+#     for i, param in enumerate(params_tup):
+#         fluc_range, fluc_period = param
+#         generate_imgs(fluc_range, fluc_period)
+#         if i == 0:
+#             generate_kline_imgs(fluc_range, fluc_period, labelling_method='fluc', image_save=False,
+#                                 img_shape=(112, 112))
+#         else:
+#             generate_kline_imgs(fluc_range, fluc_period, labelling_method='fluc', image_save=False)
+#         for j in range(2009, 2018):
+#             ta = np.load('../input/ta/SH600000/' + str(j) + '.npz')['labels']
+#             kline = np.load('../input/kline/SH600000/' + str(j) + '.npz')['labels']
+#             print(ta.shape == kline.shape)
+#             print(np.sum(ta == kline) == ta.shape[0])
 #     generate_kline_imgs()
 #     from keras.utils import to_categorical
 #     from keras.layers import Conv2D, MaxPooling2D, Dropout, Flatten, Dense
