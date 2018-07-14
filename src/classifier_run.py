@@ -7,10 +7,10 @@ Created on 2018/6/26
 import os
 import pandas as pd
 import numpy as np
-
-from cnnta import generate_imgs, generate_kline_imgs, generate_data, metrics_eval, finan_eval, res_process, CNN_model, \
-    Kline_model
 from keras.utils import to_categorical
+from model import CNN_model
+from utils import generate_data, metrics_eval
+from image_generator import generate_ta_imgs,generate_kline_imgs
 
 if __name__ == '__main__':
 
