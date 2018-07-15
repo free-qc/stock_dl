@@ -9,7 +9,7 @@ import numpy as np
 
 from collections import Counter
 from sklearn.metrics import precision_score, recall_score, f1_score, confusion_matrix
-from model import MLP_model, LSTM_model
+from lib.model import MLP_model, LSTM_model
 
 
 def generate_data(stock_dir, train_interval, test_year):

@@ -26,6 +26,7 @@ if __name__ == '__main__':
         input_dir = '../input/ta' if generator_name == 'generate_ta_imgs' else '../input/kline'
         output_dir = input_dir.replace('input', 'output')
         img_input_shape = (15, 15, 1) if generator_name == 'generate_ta_imgs' else (112, 112, 3)
+        K.clear_session()
         CNN_model = CNN_model(input_shape=img_input_shape, method='Regression')
         # k steps predict
         for i, step in enumerate(pred_steps):

@@ -8,7 +8,7 @@ import pandas as pd
 import numpy as np
 import os
 import matplotlib.pyplot as plt
-from progress_bar import ProgressBar
+from lib.progress_bar import ProgressBar
 from talib.abstract import *
 from matplotlib.finance import candlestick_ochl
 from PIL import Image

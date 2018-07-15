@@ -49,6 +49,9 @@ def Kline_model(input_shape=(112, 112, 3)):
     return model
 
 
+def CNN1D_model(input_shape=(15, 15, 1)):
+    #TODO
+
 def LSTM_model(train_data, test_data, time_steps=240):
     train_x, test_x, train_y, test_y = generate_compared_data(train_data, test_data, time_steps=time_steps)
 
