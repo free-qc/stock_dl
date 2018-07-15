@@ -10,7 +10,7 @@ import numpy as np
 from keras.utils import to_categorical
 from model import CNN_model
 from utils import generate_data, metrics_eval
-from image_generator import generate_ta_imgs,generate_kline_imgs
+from image_generator import generate_ta_imgs, generate_kline_imgs
 
 if __name__ == '__main__':
 
@@ -26,6 +26,8 @@ if __name__ == '__main__':
     # fluc_period_params_test = [20]
     fluc_range_params = [0.01, 0.015, 0.02, 0.025, 0.03]
     params_tup = [(i, j) for i in fluc_range_params for j in fluc_period_params]
+    cnn_model = CNN_model(input_shape=(112, 112, 3))
+
     for i, param in enumerate(params_tup):
         fluc_range, fluc_period = param
         # generate_imgs(fluc_range, fluc_period)
@@ -34,7 +36,6 @@ if __name__ == '__main__':
                                 img_shape=(112, 112))
         else:
             generate_kline_imgs(fluc_range, fluc_period, labelling_method='fluc', image_save=False)
-        cnn_model = CNN_model(input_shape=(112, 112, 3))
         for stock in stock_list:
             stock_dir = input_dir + '/' + 'kline/' + stock
             stock_output_dir = output_dir + '/' + stock + '/' + str(fluc_period) + '_' + str(fluc_range)

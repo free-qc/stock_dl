@@ -9,6 +9,7 @@ import numpy as np
 import os
 import matplotlib.pyplot as plt
 from progress_bar import ProgressBar
+from talib.abstract import *
 from matplotlib.finance import candlestick_ochl
 from PIL import Image
 
@@ -64,7 +65,7 @@ def generate_ta_imgs(fluc_range=0.01, fluc_period=5, labelling_method='fluc', pr
     print('=====================done======================')
 
 
-def generate_kline_imgs(fluc_range=0.01, fluc_period=5, labelling_method='fluc', image_save=False,
+def generate_kline_imgs(fluc_range=0.01, fluc_period=5, pred_steps=1, labelling_method='fluc', image_save=False,
                         img_shape=(112, 112)):
     stocks_dir = '../data/stock'
     stocks_names = [f for f in os.listdir(stocks_dir) if not f.startswith('.')]
@@ -77,7 +78,8 @@ def generate_kline_imgs(fluc_range=0.01, fluc_period=5, labelling_method='fluc',
         stock_dir = output_dir + '/' + stock.split('.')[0]
         if not os.path.exists(stock_dir):
             os.makedirs(stock_dir)
-        labels_arr = labelling(input_df, fluc_range=fluc_range, fluc_period=fluc_period, method=labelling_method)
+        labels_arr = labelling(input_df, fluc_range=fluc_range, fluc_period=fluc_period, method=labelling_method,
+                               pred_steps=pred_steps)
         # 按年份建立文件夹，以便存储img
         for year in range(2008, 2019):
             stock_year_dir = stock_dir + '/' + str(year)

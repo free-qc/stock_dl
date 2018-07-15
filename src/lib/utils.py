@@ -128,24 +128,6 @@ def ar_process(y_pred, fin_data):
             'trans_count': trans_count}
 
 
-def generate_compared_data(train_data, test_data, time_steps=100):
-    test_arr_len = test_data.shape[0]
-    input_arr = np.concatenate((train_data, test_data))
-    data_x = []
-    data_y = []
-    for i in range(len(input_arr) - time_steps):
-        data_x.append(input_arr[i:(i + time_steps)])
-        data_y.append(input_arr[i + time_steps])
-    data_x = np.array(data_x)
-    data_y = np.array(data_y).flatten()
-    data_x = data_x[:, :, np.newaxis]
-    # train test
-    # TODO
-    train_x, test_x = data_x[:-test_arr_len], data_x[-test_arr_len:]
-    train_y, test_y = data_y[:-test_arr_len], data_y[-test_arr_len:]
-    return train_x, test_x, train_y, test_y
-
-
 def res_process(res_dic, eval_list, output_dir):
     final_res = {}
     for eval in eval_list:
