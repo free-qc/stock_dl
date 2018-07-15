@@ -16,7 +16,7 @@ from PIL import Image
 np.seterr(invalid='ignore')
 
 
-def generate_ta_imgs(fluc_range=0.01, fluc_period=5, labelling_method='fluc', pred_steps=1):
+def generate_ta_imgs(fluc_range=0.01, pred_steps=5, labelling_method='fluc'):
     print('=================generating imgs===============')
     stocks_dir = '../data/stock'
     stocks_names = [f for f in os.listdir(stocks_dir) if not f.startswith('.')]
@@ -36,7 +36,7 @@ def generate_ta_imgs(fluc_range=0.01, fluc_period=5, labelling_method='fluc', pr
         stock_dir = output_dir + '/' + stock.split('.')[0]
         if not os.path.exists(stock_dir):
             os.mkdir(stock_dir)
-        indicators_df = ta_process(input_df, indicators, fluc_range, fluc_period, labelling_method, pred_steps)
+        indicators_df = ta_process(input_df, indicators, fluc_range, pred_steps, labelling_method)
         # 按年份分开
         year_se = indicators_df['date'].map(lambda x: x.year)
         for year in range(2008, 2018):
@@ -65,7 +65,7 @@ def generate_ta_imgs(fluc_range=0.01, fluc_period=5, labelling_method='fluc', pr
     print('=====================done======================')
 
 
-def generate_kline_imgs(fluc_range=0.01, fluc_period=5, pred_steps=1, labelling_method='fluc', image_save=False,
+def generate_kline_imgs(fluc_range=0.01, pred_steps=1, labelling_method='fluc', image_save=False,
                         img_shape=(112, 112)):
     stocks_dir = '../data/stock'
     stocks_names = [f for f in os.listdir(stocks_dir) if not f.startswith('.')]
@@ -78,8 +78,8 @@ def generate_kline_imgs(fluc_range=0.01, fluc_period=5, pred_steps=1, labelling_
         stock_dir = output_dir + '/' + stock.split('.')[0]
         if not os.path.exists(stock_dir):
             os.makedirs(stock_dir)
-        labels_arr = labelling(input_df, fluc_range=fluc_range, fluc_period=fluc_period, method=labelling_method,
-                               pred_steps=pred_steps)
+        labels_arr = labelling(input_df, fluc_range=fluc_range, pred_steps=pred_steps, method=labelling_method,
+                               )
         # 按年份建立文件夹，以便存储img
         for year in range(2008, 2019):
             stock_year_dir = stock_dir + '/' + str(year)
@@ -88,15 +88,15 @@ def generate_kline_imgs(fluc_range=0.01, fluc_period=5, pred_steps=1, labelling_
         # 生成img并存储
         if image_save:
             imgs_arr = kline_imgs(input_df, stock_dir, image_save, img_shape)
-            imgs_arr = imgs_arr[:-fluc_period]
+            imgs_arr = imgs_arr[:-pred_steps]
         # imgs_arr不包含前19天,labels_arr也需要裁剪
-        labels_arr = labels_arr[19:-fluc_period].astype('uint8')
+        labels_arr = labels_arr[19:-pred_steps].astype('uint8')
         fin_data = input_df.loc[:, ['date',
                                     'open',
                                     'close']]
-        fin_data = fin_data.iloc[19:-fluc_period].values
+        fin_data = fin_data.iloc[19:-pred_steps].values
         year_se = input_df['date'].apply(lambda x: x.year)
-        year_se = year_se.iloc[19:-fluc_period]
+        year_se = year_se.iloc[19:-pred_steps]
         # assert imgs_arr.shape[0] == labels_arr.shape[0] == fin_data.shape[0], "labels和imgs或fin_data长度不同"
         for year in range(2008, 2018):
             if not image_save:
@@ -152,9 +152,9 @@ def kline_imgs(input_df, stock_dir, image_save=False, img_shape=(112, 112)):
     return imgs_arr
 
 
-def ta_process(input_df, indicators, fluc_range, fluc_period, labelling_method='fluc', pred_steps=1):
+def ta_process(input_df, indicators, fluc_range, pred_steps, labelling_method='fluc'):
     intervals = list(range(6, 21))
-    input_df['label'] = labelling(input_df, fluc_range, fluc_period, labelling_method, pred_steps)
+    input_df['label'] = labelling(input_df, fluc_range, pred_steps, labelling_method)
     input_df['SMA50'] = SMA(input_df, timeperiod=50)
     for indr in indicators:
         for intr in intervals:
@@ -174,7 +174,7 @@ def ta_process(input_df, indicators, fluc_range, fluc_period, labelling_method='
     return input_df
 
 
-def labelling(input_df, fluc_range=0.01, fluc_period=5, method='fluc', pred_steps=1):
+def labelling(input_df, fluc_range=0.01, pred_steps=5, method='fluc'):
     # 返回的label_arr长度均为输入数据长度
     if method == 'time_window':
         close_price_arr = input_df['close'].values
@@ -197,12 +197,12 @@ def labelling(input_df, fluc_range=0.01, fluc_period=5, method='fluc', pred_step
                 label_list.append(2)
         return np.array(label_list)
     if method == 'fluc':
-        fluc_period = int(fluc_period)
+        pred_steps = int(pred_steps)
         close_price_arr = input_df['close'].values
         close_arr_len = close_price_arr.shape[0]
         label_arr = np.zeros(shape=close_arr_len)
-        period_log = np.log(close_price_arr / np.roll(close_price_arr, fluc_period))[fluc_period:]
-        period_log = np.append(period_log, np.array([np.nan] * fluc_period))
+        period_log = np.log(close_price_arr / np.roll(close_price_arr, pred_steps))[pred_steps:]
+        period_log = np.append(period_log, np.array([np.nan] * pred_steps))
         label_arr[period_log < -fluc_range] = 0
         label_arr[period_log > fluc_range] = 1
         label_arr[(-fluc_range < period_log) * (period_log < fluc_range)] = 2
