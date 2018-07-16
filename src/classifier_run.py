@@ -9,9 +9,8 @@ import pandas as pd
 from keras import backend as K
 from keras.utils import to_categorical
 from lib.model import CNN_model
-from lib.utils import generate_data,metrics_eval
+from lib.utils import generate_data, metrics_eval
 from lib.image_generator import generate_ta_imgs, generate_kline_imgs
-
 
 if __name__ == '__main__':
 
@@ -29,6 +28,7 @@ if __name__ == '__main__':
         input_dir = '../input/ta' if generator_name == 'generate_ta_imgs' else '../input/kline'
         output_dir = input_dir.replace('input', 'output')
         img_input_shape = (15, 15, 1) if generator_name == 'generate_ta_imgs' else (112, 112, 3)
+        K.clear_session()
         CNN_model = CNN_model(input_shape=img_input_shape, method='Classification')
         # k steps predict
         for f_range, step in params:
@@ -68,5 +68,3 @@ if __name__ == '__main__':
                                                        index=[['Actual'] * 3, ['SELL', 'BUY', 'HOLD']],
                                                        columns=[['Predicted'] * 3, ['SELL', 'BUY', 'HOLD']])
                     confusion_matrix_df.to_csv(stock_output_dir + '/' + str(test_year) + '_confutsion_matrix.csv')
-
-        K.clear_session()

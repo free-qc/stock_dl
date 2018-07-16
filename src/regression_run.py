@@ -64,4 +64,3 @@ if __name__ == '__main__':
                     res_dic[test_year]['mean_absolute_error'] = mean_absolute_error(test_y, pred_y)
                     res_dic[test_year]['mean_squared_error'] = mean_squared_error(test_y, pred_y)
                 pd.DataFrame.from_dict(res_dic, orient='index').to_csv(stock_output_dir + '/' + str(step) + '.csv')
-        K.clear_session()
