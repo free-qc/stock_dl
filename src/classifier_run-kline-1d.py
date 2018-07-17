@@ -6,14 +6,14 @@ Created on 2018/6/26
 """
 import os
 import pandas as pd
+import numpy as np
 import tensorflow as tf
 from keras import backend as K
 from keras.utils import to_categorical
-from lib.model import CNN_model
+from lib.model import Kline1D_model
 from lib.utils import generate_data, metrics_eval
 from lib.image_generator import generate_ta_imgs, generate_kline_imgs
 import keras.backend.tensorflow_backend as KTF
-
 
 if __name__ == '__main__':
     # os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
@@ -25,9 +25,10 @@ if __name__ == '__main__':
     input_years = [str(year) for year in range(2008, 2018)]
     pred_steps = [1, 3, 5, 10, 15, 20]
     fluc_range = [0.005, 0.01, 0.015, 0.02, 0.025, 0.03]
+    window_size = [2, 3, 5, 7, 10]
     # pred_steps = [1]
     # fluc_range = [0.01]
-    params = [(f_range, step) for f_range in fluc_range for step in pred_steps]
+    params = [(f_range, step, win_size) for f_range in fluc_range for step in pred_steps for win_size in window_size]
     for img_generator in [generate_kline_imgs]:
         generator_name = img_generator.__name__
         input_dir = '../input/ta' if generator_name == 'generate_ta_imgs' else '../input/kline'
@@ -35,13 +36,13 @@ if __name__ == '__main__':
         img_input_shape = (15, 15, 1) if generator_name == 'generate_ta_imgs' else (112, 112, 3)
         # k steps predict
         for stock in stock_list:
-            for f_range, step in params[36:37]:
+            for f_range, step, win_size in params:
                 if generator_name == 'generate_ta_imgs':
                     generate_ta_imgs(fluc_range=f_range, pred_steps=step, labelling_method='fluc')
                 else:
                     generate_kline_imgs(fluc_range=f_range, pred_steps=step, labelling_method='fluc', image_save=False)
                 stock_dir = input_dir + '/' + stock
-                stock_output_dir = output_dir + '/' + stock + '/' + str(f_range) + '_' + str(step)
+                stock_output_dir = output_dir + '/' + stock + '/' + str(win_size) + '_' + str(f_range) + '_' + str(step)
 
                 if not os.path.exists(stock_output_dir):
                     os.makedirs(stock_output_dir)
@@ -61,16 +62,17 @@ if __name__ == '__main__':
                     if not train_y.shape[1] == 3:
                         continue
                     # clear session and build model
-                    # K.clear_session()
-                    # tf.reset_default_graph()
-                    cnn_model = CNN_model(img_input_shape, method='Classification')
-                    history = cnn_model.fit(train_x, train_y,
-                                            batch_size=bath_size,
-                                            epochs=nb_epoch,
-                                            verbose=2
-                                            )
+                    K.clear_session()
+                    tf.reset_default_graph()
+
+                    cnn1d_model = Kline1D_model(img_input_shape, window_size=win_size, method='Classification')
+                    history = cnn1d_model.fit(train_x, train_y,
+                                              batch_size=bath_size,
+                                              epochs=nb_epoch,
+                                              verbose=2
+                                              )
                     # SELL:0  BUY:1  HOLD:2
-                    pred_y = cnn_model.predict_classes(test_x)
+                    pred_y = cnn1d_model.predict_classes(test_x)
                     # metrics
                     metrics = metrics_eval(test_y, pred_y)
                     score_df = pd.DataFrame.from_dict(metrics['score'], orient='index')

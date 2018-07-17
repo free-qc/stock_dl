@@ -16,7 +16,7 @@ import keras.backend.tensorflow_backend as KTF
 
 
 if __name__ == '__main__':
-    # os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
+    os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
     bath_size = 20
     nb_epoch = 20
     train_interval = 5
@@ -28,14 +28,14 @@ if __name__ == '__main__':
     # pred_steps = [1]
     # fluc_range = [0.01]
     params = [(f_range, step) for f_range in fluc_range for step in pred_steps]
-    for img_generator in [generate_kline_imgs]:
+    for img_generator in [generate_ta_imgs]:
         generator_name = img_generator.__name__
         input_dir = '../input/ta' if generator_name == 'generate_ta_imgs' else '../input/kline'
         output_dir = input_dir.replace('input', 'output')
         img_input_shape = (15, 15, 1) if generator_name == 'generate_ta_imgs' else (112, 112, 3)
         # k steps predict
         for stock in stock_list:
-            for f_range, step in params[36:37]:
+            for f_range, step in params:
                 if generator_name == 'generate_ta_imgs':
                     generate_ta_imgs(fluc_range=f_range, pred_steps=step, labelling_method='fluc')
                 else:

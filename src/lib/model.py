@@ -33,30 +33,36 @@ def CNN_model(input_shape=(15, 15, 1), method='Classification'):
     elif method == 'Regression':
         model.add(Dense(units=1))
         model.compile(loss='mean_squared_error', optimizer="adam",
-                      metrics=["accuracy"])
+                      metrics=["mae"])
 
     return model
 
 
-def Kline_model(input_shape=(112, 112, 3)):
+def Kline1D_model(input_shape=(112, 112, 3), window_size=3, method='Classification'):
     model = Sequential()
     model.add(Conv2D(filters=32,
-                     kernel_size=(3, 3),
+                     kernel_size=(112, window_size),
                      padding='same',
                      input_shape=input_shape,
                      activation='relu'))
-    model.add(MaxPooling2D(pool_size=(2, 2)))
-    model.add(Conv2D(filters=64, kernel_size=(3, 3), padding='same', activation='relu'))
-    model.add(MaxPooling2D(pool_size=(2, 2)))
-    model.add(Conv2D(filters=128, kernel_size=(3, 3), padding='same', activation='relu'))
+    model.add(Conv2D(filters=64,
+                     kernel_size=(112, window_size),
+                     padding='same',
+                     activation='relu'))
     model.add(MaxPooling2D(pool_size=(2, 2)))
     model.add(Dropout(rate=0.25))
     model.add(Flatten())
-    model.add(Dense(units=1024, activation='relu'))
+    model.add(Dense(units=128, activation='relu'))
     model.add(Dropout(rate=0.5))
-    model.add(Dense(units=3, activation='softmax'))
-    model.compile(loss='categorical_crossentropy', optimizer='adam',
-                  metrics=[categorical_accuracy])
+    if method == 'Classification':
+        model.add(Dense(units=3, activation='softmax'))
+        model.compile(loss='categorical_crossentropy', optimizer='adam',
+                      metrics=[categorical_accuracy])
+    elif method == 'Regression':
+        model.add(Dense(units=1))
+        model.compile(loss='mean_squared_error', optimizer="adam",
+                      metrics=["mae"])
+
     return model
 
 

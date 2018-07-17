@@ -6,14 +6,15 @@ Created on 2018/7/13
 """
 import os
 import pandas as pd
+import tensorflow as tf
 from keras import backend as K
-from model import CNN_model
-from utils import generate_data
-from image_generator import generate_ta_imgs, generate_kline_imgs
+from lib.model import CNN_model
+from lib.utils import generate_data
+from lib.image_generator import generate_ta_imgs, generate_kline_imgs
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 
 if __name__ == '__main__':
-
+    # os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
     bath_size = 20
     nb_epoch = 20
     train_interval = 5
@@ -21,15 +22,13 @@ if __name__ == '__main__':
     stock_list = [f.split('.')[0] for f in os.listdir('../data/stock') if not f.startswith('.')]
     input_years = [str(year) for year in range(2008, 2018)]
     pred_steps = [1, 3, 5, 10, 15, 20]
-    for img_generator in [generate_ta_imgs, generate_kline_imgs]:
+    for img_generator in [generate_kline_imgs]:
         generator_name = img_generator.__name__
         input_dir = '../input/ta' if generator_name == 'generate_ta_imgs' else '../input/kline'
-        output_dir = input_dir.replace('input', 'output')
+        output_dir = input_dir.replace('input', 'output/reg')
         img_input_shape = (15, 15, 1) if generator_name == 'generate_ta_imgs' else (112, 112, 3)
-        K.clear_session()
-        CNN_model = CNN_model(input_shape=img_input_shape, method='Regression')
         # k steps predict
-        for i, step in enumerate(pred_steps):
+        for i, step in enumerate(pred_steps[5:6]):
             if generator_name == 'generate_ta_imgs':
                 generate_ta_imgs(labelling_method='regression', pred_steps=step)
             else:
@@ -52,13 +51,16 @@ if __name__ == '__main__':
                     print('training:{0},train_interval:{1}-->{2},test_year:{3}'.format(stock, train_year_interval[0],
                                                                                        train_year_interval[-1],
                                                                                        test_year))
-
-                    history = CNN_model.fit(train_x, train_y,
+                    # clear session and build model
+                    # K.clear_session()
+                    # tf.reset_default_graph()
+                    cnn_model = CNN_model(input_shape=img_input_shape, method='Regression')
+                    history = cnn_model.fit(train_x, train_y,
                                             batch_size=bath_size,
                                             epochs=nb_epoch,
                                             verbose=2)
                     # SELL:0  BUY:1  HOLD:2
-                    pred_y = CNN_model.predict(test_x)
+                    pred_y = cnn_model.predict(test_x)
                     # mean_absolute_error, mean_squared_error
                     res_dic[test_year] = {}
                     res_dic[test_year]['mean_absolute_error'] = mean_absolute_error(test_y, pred_y)

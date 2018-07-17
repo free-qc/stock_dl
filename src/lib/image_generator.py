@@ -208,9 +208,11 @@ def labelling(input_df, fluc_range=0.01, pred_steps=5, method='fluc'):
         label_arr[(-fluc_range < period_log) * (period_log < fluc_range)] = 2
         return label_arr
     if method == 'regression':
-        label_arr = input_df['close'].values[1:]
-        label_arr = np.append(label_arr, np.nan)
-        return label_arr
+        pred_steps = int(pred_steps)
+        close_price_arr = input_df['close'].values
+        period_log = np.log(close_price_arr / np.roll(close_price_arr, pred_steps))[pred_steps:]
+        period_log = np.append(period_log, np.array([np.nan] * pred_steps))
+        return period_log
 
 
 def HMA(inputs, price='close', timeperiod=10):

@@ -39,11 +39,11 @@ def metrics_eval(y_true, y_pred):
     y_pred_shape = y_pred.shape
     y_true = output_reshape(y_true, y_true_shape)
     y_pred = output_reshape(y_pred, y_pred_shape)
-    confusion_mat = confusion_matrix(y_true, y_pred)
+    confusion_mat = confusion_matrix(y_true, y_pred, labels=[0, 1, 2])
     # SELL:0  BUY:1  HOLD:2
     score_dic = {'SELL': {}, 'BUY': {}, 'HOLD': {}}
     for func in score_funcs:
-        score_res = func(y_true, y_pred, average=None)
+        score_res = func(y_true, y_pred, average=None, labels=[0, 1, 2])
         for idx, label in enumerate(score_dic):
             score_dic[label][func.__name__] = score_res[idx]
     return {'confusion_matrix': confusion_mat,
