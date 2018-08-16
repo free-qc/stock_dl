@@ -66,7 +66,7 @@ def generate_ta_imgs(fluc_range=0.01, pred_steps=5, labelling_method='fluc'):
 
 
 def generate_kline_imgs(fluc_range=0.01, pred_steps=1, labelling_method='fluc', image_save=False,
-                        img_shape=(112, 112)):
+                        img_shape=(112, 112), split_by_year=True):
     stocks_dir = '../data/stock'
     stocks_names = [f for f in os.listdir(stocks_dir) if not f.startswith('.')]
     output_dir = '../input/kline'
@@ -87,10 +87,11 @@ def generate_kline_imgs(fluc_range=0.01, pred_steps=1, labelling_method='fluc', 
                 os.mkdir(stock_year_dir)
         # 生成img并存储
         if image_save:
+            print('generating images of ' + stock)
             imgs_arr = kline_imgs(input_df, stock_dir, image_save, img_shape)
             imgs_arr = imgs_arr[:-pred_steps]
         # imgs_arr不包含前19天,labels_arr也需要裁剪
-        labels_arr = labels_arr[19:-pred_steps].astype('uint8')
+        labels_arr = labels_arr[19:-pred_steps]
         fin_data = input_df.loc[:, ['date',
                                     'open',
                                     'close']]
@@ -98,15 +99,23 @@ def generate_kline_imgs(fluc_range=0.01, pred_steps=1, labelling_method='fluc', 
         year_se = input_df['date'].apply(lambda x: x.year)
         year_se = year_se.iloc[19:-pred_steps]
         # assert imgs_arr.shape[0] == labels_arr.shape[0] == fin_data.shape[0], "labels和imgs或fin_data长度不同"
-        for year in range(2008, 2018):
+        if split_by_year:
+            for year in range(2008, 2018):
+                if not image_save:
+                    year_imgs_arr = np.load('{0}/{1}.npz'.format(stock_dir, year))['imgs']
+                else:
+                    year_imgs_arr = imgs_arr[year_se == year]
+                year_fin_data = fin_data[year_se == year]
+                year_labels_arr = labels_arr[year_se == year]
+                np.savez('{0}/{1}.npz'.format(stock_dir, year), imgs=year_imgs_arr, fin_data=year_fin_data,
+                         labels=year_labels_arr)
+        else:
             if not image_save:
-                year_imgs_arr = np.load('{0}/{1}.npz'.format(stock_dir, year))['imgs']
-            else:
-                year_imgs_arr = imgs_arr[year_se == year]
-            year_fin_data = fin_data[year_se == year]
-            year_labels_arr = labels_arr[year_se == year]
-            np.savez('{0}/{1}.npz'.format(stock_dir, year), imgs=year_imgs_arr, fin_data=year_fin_data,
-                     labels=year_labels_arr)
+                try:
+                    imgs_arr = np.load('{0}/{1}.npz'.format(stock_dir, stock[:8]))['imgs']
+                except:
+                    print(stock+' zip problem')
+            np.savez('{0}/{1}.npz'.format(stock_dir, stock[:8]), imgs=imgs_arr, fin_data=fin_data, labels=labels_arr)
 
 
 def kline_imgs(input_df, stock_dir, image_save=False, img_shape=(112, 112)):

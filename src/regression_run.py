@@ -14,7 +14,6 @@ from lib.image_generator import generate_ta_imgs, generate_kline_imgs
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 
 if __name__ == '__main__':
-    # os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
     bath_size = 20
     nb_epoch = 20
     train_interval = 5
@@ -52,8 +51,8 @@ if __name__ == '__main__':
                                                                                        train_year_interval[-1],
                                                                                        test_year))
                     # clear session and build model
-                    # K.clear_session()
-                    # tf.reset_default_graph()
+                    K.clear_session()
+                    tf.reset_default_graph()
                     cnn_model = CNN_model(input_shape=img_input_shape, method='Regression')
                     history = cnn_model.fit(train_x, train_y,
                                             batch_size=bath_size,

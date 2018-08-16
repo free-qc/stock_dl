@@ -8,8 +8,8 @@ Created on 2018/6/26
 import os
 import pandas as pd
 
-input_dir = ''
-output_dir = './output'
+input_dir = './'
+output_dir = './stock'
 stocks_path = [f for f in os.listdir(input_dir) if not f.startswith('.')]
 
 for stock in stocks_path:
